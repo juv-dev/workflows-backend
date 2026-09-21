@@ -40,6 +40,8 @@ Any language works as long as the caller provides equivalent commands, for examp
 
 `coverage-check-command` and `version-command` are optional; omit them if the project has no coverage gate or does not publish tagged releases.
 
+Every PR run also includes a `no-ai-artifacts` job that fails if the PR adds AI assistant config files (`.claude/`, `AGENTS.md`, `.claudeignore`, `.cursor/`, etc.) that should stay local.
+
 ## Security scan only
 
 For push/schedule-triggered scanning without the full PR pipeline:
