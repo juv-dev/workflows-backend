@@ -1,0 +1,27 @@
+name: 'Validate Tag'
+description: 'Validates that a given version is not already tagged in git, regardless of how the caller computes it'
+
+inputs:
+  version:
+    description: 'Version string to check (e.g. output of "node -p require(./package.json).version", "poetry version -s", "cat VERSION")'
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/checkout@v6
+      with:
+        fetch-depth: 0
+
+    - name: Validate tag does not exist
+      shell: bash
+      env:
+        VERSION: ${{ inputs.version }}
+      run: |
+        TAG="v$VERSION"
+        echo "Checking tag: $TAG"
+        if git rev-parse --verify "refs/tags/$TAG" >/dev/null 2>&1; then
+          echo "::error::Tag $TAG already exists. Bump the version before merging."
+          exit 1
+        fi
+        echo "Tag $TAG is available."

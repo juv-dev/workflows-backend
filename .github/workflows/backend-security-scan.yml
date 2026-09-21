@@ -1,0 +1,39 @@
+name: Workflow Backend Security Scan
+
+on:
+  workflow_call:
+    inputs:
+      setup-command:
+        type: string
+        required: true
+      dependency-audit-command:
+        type: string
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  secrets-scan:
+    name: secrets-scan
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: juv-dev/workflows-backend/.github/actions/secrets-scan@main
+
+  dependency-audit:
+    name: dependency-audit
+    needs: secrets-scan
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: juv-dev/workflows-backend/.github/actions/run-command@main
+        with:
+          step-name: 'Setup'
+          command: ${{ inputs.setup-command }}
+      - uses: juv-dev/workflows-backend/.github/actions/run-command@main
+        with:
+          step-name: 'Dependency audit'
+          command: ${{ inputs.dependency-audit-command }}

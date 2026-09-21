@@ -1,0 +1,135 @@
+name: Workflow Backend PR Pipeline
+
+on:
+  workflow_call:
+    inputs:
+      setup-command:
+        description: 'Installs the toolchain and dependencies (e.g. "pnpm install --frozen-lockfile", "pip install -r requirements.txt")'
+        type: string
+        required: true
+      dependency-audit-command:
+        description: 'Fails on known vulnerable dependencies (e.g. "pnpm audit --audit-level high", "pip-audit", "govulncheck ./...")'
+        type: string
+        required: true
+      lint-command:
+        description: 'Static analysis / lint command'
+        type: string
+        required: true
+      build-command:
+        description: 'Build or compile command'
+        type: string
+        required: true
+      test-command:
+        description: 'Runs the test suite (should also produce coverage output if coverage-check-command is set)'
+        type: string
+        required: true
+      coverage-check-command:
+        description: 'Optional command that exits non-zero when coverage is below the required threshold; owns the actual threshold logic for the language in use'
+        type: string
+        required: false
+        default: ''
+      version-command:
+        description: 'Prints the current release version to stdout (e.g. "node -p require(./package.json).version", "poetry version -s")'
+        type: string
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+
+jobs:
+  secrets-scan:
+    name: secrets-scan
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: juv-dev/workflows-backend/.github/actions/secrets-scan@main
+
+  dependency-audit:
+    name: dependency-audit
+    needs: secrets-scan
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: juv-dev/workflows-backend/.github/actions/run-command@main
+        with:
+          step-name: 'Setup'
+          command: ${{ inputs.setup-command }}
+      - uses: juv-dev/workflows-backend/.github/actions/run-command@main
+        with:
+          step-name: 'Dependency audit'
+          command: ${{ inputs.dependency-audit-command }}
+
+  lint:
+    name: lint
+    needs: dependency-audit
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: juv-dev/workflows-backend/.github/actions/run-command@main
+        with:
+          step-name: 'Setup'
+          command: ${{ inputs.setup-command }}
+      - uses: juv-dev/workflows-backend/.github/actions/run-command@main
+        with:
+          step-name: 'Lint'
+          command: ${{ inputs.lint-command }}
+
+  build:
+    name: build
+    needs: lint
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: juv-dev/workflows-backend/.github/actions/run-command@main
+        with:
+          step-name: 'Setup'
+          command: ${{ inputs.setup-command }}
+      - uses: juv-dev/workflows-backend/.github/actions/run-command@main
+        with:
+          step-name: 'Build'
+          command: ${{ inputs.build-command }}
+
+  test:
+    name: test
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: juv-dev/workflows-backend/.github/actions/run-command@main
+        with:
+          step-name: 'Setup'
+          command: ${{ inputs.setup-command }}
+      - uses: juv-dev/workflows-backend/.github/actions/run-command@main
+        with:
+          step-name: 'Test'
+          command: ${{ inputs.test-command }}
+      - if: inputs.coverage-check-command != ''
+        uses: juv-dev/workflows-backend/.github/actions/run-command@main
+        with:
+          step-name: 'Coverage threshold'
+          command: ${{ inputs.coverage-check-command }}
+
+  validate-tag:
+    name: validate-tag
+    if: inputs.version-command != ''
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: juv-dev/workflows-backend/.github/actions/run-command@main
+        with:
+          step-name: 'Setup'
+          command: ${{ inputs.setup-command }}
+      - id: version
+        shell: bash
+        run: echo "value=$(${{ inputs.version-command }})" >> "$GITHUB_OUTPUT"
+      - uses: juv-dev/workflows-backend/.github/actions/validate-tag@main
+        with:
+          version: ${{ steps.version.outputs.value }}

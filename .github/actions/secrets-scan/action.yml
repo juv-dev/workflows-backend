@@ -1,0 +1,32 @@
+name: 'Secrets Scan'
+description: 'Scans the repository for verified committed secrets using TruffleHog'
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/checkout@v6
+      with:
+        fetch-depth: 0
+
+    - name: Run TruffleHog
+      id: trufflehog
+      continue-on-error: true
+      uses: trufflesecurity/trufflehog@f714bf454f350590f4a24c3ddb1aef02c35bf5b6 # v3.97.5
+      with:
+        extra_args: --only-verified
+
+    - name: Summarize TruffleHog result
+      if: always() && steps.trufflehog.outcome == 'failure'
+      shell: bash
+      run: |
+        {
+          echo "## TruffleHog - verified secrets detected"
+          echo ""
+          echo "Active credentials were found committed to the repository. This is critical."
+          echo ""
+          echo "### How to fix"
+          echo "1. Rotate the leaked secret immediately."
+          echo "2. Remove it from the code and move it to CI secrets or a gitignored env file."
+          echo "3. Purge it from git history if the repository is not private to the team."
+        } >> "$GITHUB_STEP_SUMMARY"
+        exit 1

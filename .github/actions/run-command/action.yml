@@ -1,0 +1,20 @@
+name: 'Run Command'
+description: 'Checks out the repository and runs a caller-provided shell command, independent of language or toolchain'
+
+inputs:
+  command:
+    description: 'Shell command to execute (e.g. "pip install -r requirements.txt && pytest --cov")'
+    required: true
+  step-name:
+    description: 'Label shown for the executed step'
+    required: false
+    default: 'Run command'
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/checkout@v6
+
+    - name: ${{ inputs.step-name }}
+      shell: bash
+      run: ${{ inputs.command }}
